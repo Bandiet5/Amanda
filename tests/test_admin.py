@@ -46,8 +46,12 @@ def test_new_draw_preserves_every_other_completed_assignment(app):
     assert allocations(app) == before
     assert post(admin, path, session, {'event_id': states[0]['event_id'], 'confirmation': 'NEW DRAW', 'draw_version': 0}).status_code == 200
     assert allocations(app) == {k:v for k,v in before.items() if k != target}
-    assert spin(clients[0], states[0]).status_code == 409  # Stale browser cannot recreate the old draw.
-    fresh = bootstrap(clients[0]); assert fresh['draw'] is None
+    assert spin(clients[0], states[0]).status_code == 401  # Stale browser cannot recreate the old draw.
+    fresh = bootstrap(clients[0])
+    assert fresh['draw'] is None and fresh['participant'] is None
+    assert fresh['binding_lost'] is False
+    assert [p['id'] for p in fresh['participants'] if not p['claimed']] == [target]
+    fresh = bind(clients[0], target)
     assert fresh['segments'] == [{'id': before[target], 'name': next(p['name'] for p in fresh['participants'] if p['id'] == before[target])}]
     assert spin(clients[0], fresh).status_code == 200
     assert allocations(app) == before  # With seven completed draws, the same recipient is forced.
@@ -185,9 +189,37 @@ def test_retry_of_old_admin_confirmation_cannot_reset_replacement_draw(app):
     path = f"/admin/participants/{state['participant']['id']}/new-draw"
     body = {'event_id':state['event_id'],'draw_version':0,'confirmation':'NEW DRAW'}
     assert post(admin,path,session,body).status_code == 200
-    replacement = spin(client,bootstrap(client))
+    replacement = spin(client,bind(client, state['participant']['id']))
     assert replacement.status_code == 200
     before = allocations(app)
     # Retrying a request whose response was lost must not revoke the replacement.
     assert post(admin,path,session,body).status_code == 409
+    assert allocations(app) == before
+
+
+def test_new_draw_releases_wrong_name_before_spin_and_invalidates_recovery(app):
+    wrong_browser = app.test_client(); wrong = bind(wrong_browser)
+    other_browser = app.test_client(); other = bind(other_browser)
+    spin(other_browser, other)
+    before = allocations(app)
+    target = wrong['participant']['id']
+    actual_id = wrong['participants'][2]['id']
+    admin, session = administrator(app)
+    recovery = post(admin, f'/admin/participants/{target}/recovery', session,
+                    {'event_id': wrong['event_id'], 'confirmation': 'RESET BROWSER LINK'})
+    token = recovery.json['recovery_url'].split('#recover=')[1]
+    response = post(admin, f'/admin/participants/{target}/new-draw', session,
+                    {'event_id': wrong['event_id'], 'draw_version': 0, 'confirmation': 'NEW DRAW'})
+    assert response.status_code == 200
+    fresh = bootstrap(wrong_browser)
+    assert fresh['participant'] is None and not fresh['binding_lost']
+    assert not next(p for p in fresh['participants'] if p['id'] == target)['claimed']
+    assert allocations(app) == before
+    assert bootstrap(other_browser)['participant'] == other['participant']
+    assert post(wrong_browser, '/claim', fresh,
+                {'event_id': fresh['event_id'], 'participant_id': other['participant']['id']}).status_code == 409
+    assert bind(wrong_browser, actual_id)['participant']['id'] == actual_id
+    real_owner = app.test_client()
+    assert post(real_owner, '/recover', bootstrap(real_owner), {'token': token}).status_code == 410
+    assert bind(real_owner, target)['participant']['id'] == target
     assert allocations(app) == before

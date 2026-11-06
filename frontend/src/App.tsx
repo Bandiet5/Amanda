@@ -89,6 +89,8 @@ export function App() {
       stateRef.current = next;
       setState(next);
       if (!old || changed) {
+        setSelected("");
+        setConfirming(false);
         animationId.current += 1;
         const restored = next.draw
           ? targetRotation(
@@ -109,10 +111,11 @@ export function App() {
           changed &&
           old.participant &&
           old.event_id === next.event_id &&
-          next.participant?.id === old.participant.id
+          !next.participant &&
+          !next.binding_lost
         )
           setError(
-            "Amanda has granted you a new draw. Your previous recipient is no longer assigned to you.",
+            "Amanda has reset your name and draw. Please choose your own name again.",
           );
       } else if (
         old.participant &&
@@ -474,10 +477,9 @@ export function App() {
                       disabled={busy}
                     >
                       <option value="">Choose your name</option>
-                      {state.participants.map((p) => (
-                        <option key={p.id} value={p.id} disabled={p.claimed}>
+                      {state.participants.filter((p) => !p.claimed).map((p) => (
+                        <option key={p.id} value={p.id}>
                           {p.name}
-                          {p.claimed ? " — Already selected" : ""}
                         </option>
                       ))}
                     </select>

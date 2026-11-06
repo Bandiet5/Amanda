@@ -48,7 +48,7 @@ const auditLabels: Record<string, string> = {
   participant_names_updated: "Participant names updated",
   assignments_revealed: "Secret assignments revealed",
   animation_replayed: "Animation replay requested",
-  new_draw_granted: "New draw granted; previous recipient released",
+  new_draw_granted: "Name and draw reset; name available again",
   browser_binding_reset: "Browser link reset; recovery link created",
   recovery_link_used: "One-use recovery link redeemed",
   entire_event_reset: "Entire event reset for a new round",
@@ -250,7 +250,7 @@ export function Admin() {
         setAction(null);
         setAssignments(null);
         setNotice(
-          `${action.person!.name} can draw again. Everyone else’s completed assignment has been preserved.`,
+          `The browser must choose a name again. ${action.person!.name} is available in the name list. Everyone else keeps their result.`,
         );
       } else {
         const response = await api<{ recovery_url: string }>(
@@ -637,11 +637,11 @@ export function Admin() {
                             <button
                               type="button"
                               className="icon-action danger-text"
-                              disabled={busy || !person.completed}
+                              disabled={busy || (!person.claimed && !person.completed)}
                               onClick={() =>
                                 openAction({ kind: "new-draw", person })
                               }
-                              title="Invalidate recipient and grant a new draw"
+                              title="Release this name and let the browser choose again"
                               aria-label={`Grant new draw for ${person.name}`}
                             >
                               <Gift size={15} />
@@ -816,7 +816,7 @@ export function Admin() {
                     : action.kind === "reveal"
                       ? "This will show each giver’s saved recipient on your dashboard. Keep your screen private. This deliberate reveal will be recorded in the audit log."
                       : action.kind === "new-draw"
-                        ? `This removes ${action.person?.name}’s old result so they can spin again. Everyone else keeps their result. They may draw the same name again.`
+                        ? `This unlinks the browser from ${action.person?.name} and removes their old result. They must choose their own name again from the available names. ${action.person?.name} becomes available too. Everyone else keeps their result.`
                         : `This immediately invalidates ${action.person?.name}’s current browser link and creates a new one-use recovery link. The name is reserved for them and any saved recipient is retained. Share the link directly with them.`}
                 </p>
                 <button

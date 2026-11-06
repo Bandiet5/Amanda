@@ -393,14 +393,17 @@ def create_app(test_config=None):
                 audit(db, event['id'], 'animation_replayed', person['name'])
             elif action == 'new-draw':
                 if body.get('confirmation') != 'NEW DRAW':
-                    raise APIError('Type NEW DRAW to invalidate this person’s previous recipient.')
+                    raise APIError('Confirm that this person should choose their name again.')
                 if body.get('draw_version') != person['draw_version']:
                     raise APIError('This person’s draw has changed. Close this dialog and review their current draw before confirming again.', 409, 'draw_changed')
-                if not saved_draw(db, event['id'], person_id):
-                    raise APIError('This person already has an unused draw. Refresh the dashboard.', 409)
+                if not person['claimed_at'] and not saved_draw(db, event['id'], person_id):
+                    raise APIError('This name is already available. Refresh the dashboard.', 409)
                 db.execute('DELETE FROM draws WHERE event_id=? AND giver_id=?', (event['id'], person_id))
-                db.execute('UPDATE participants SET draw_version=draw_version+1,replay_version=replay_version+1 WHERE id=?', (person_id,))
-                audit(db, event['id'], 'new_draw_granted', person['name'], {'previous_recipient_invalidated': True})
+                db.execute('UPDATE participants SET claimed_at=NULL,draw_version=draw_version+1,replay_version=replay_version+1 WHERE id=?', (person_id,))
+                db.execute('UPDATE browser_sessions SET participant_id=NULL,revoked=0 WHERE participant_id=?', (person_id,))
+                db.execute('DELETE FROM recovery_tokens WHERE participant_id=?', (person_id,))
+                audit(db, event['id'], 'new_draw_granted', person['name'],
+                      {'previous_recipient_invalidated': True, 'name_released': True})
             elif action == 'recovery':
                 if body.get('confirmation') != 'RESET BROWSER LINK':
                     raise APIError('Confirm that you want to reset this person’s browser link.')

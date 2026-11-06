@@ -222,6 +222,8 @@ test("reduced motion, admin replay and grant-new-draw keep the correct recipient
     .click();
   await expect(newDrawDialog).toHaveCount(0);
   await adminPage.close();
+  await expect(page.getByLabel("First things first, who are you?")).toBeVisible({ timeout: 12000 });
+  await claimName(page);
   await expect(
     page.getByRole("button", { name: "Spin my Christmas draw" }),
   ).toBeVisible({ timeout: 12000 });
@@ -411,22 +413,22 @@ test("an admin reset during an in-flight animation cancels the stale reveal", as
   );
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(
-    page.getByRole("button", { name: "Spin my Christmas draw" }),
-  ).toBeEnabled();
+    page.getByLabel("First things first, who are you?"),
+  ).toBeVisible();
   // Wait past the original animation; its stale callback must never reveal a recipient.
   await expect
     .poll(async () => {
       const current: State = await (
         await page.request.get("/api/state")
       ).json();
-      return current.participant?.draw_version;
+      return current.participant;
     })
-    .toBe(1);
+    .toBeNull();
   await page.waitForTimeout(5700);
   await expect(page.getByTestId("recipient-name")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Spin my Christmas draw" }),
-  ).toBeEnabled();
+    page.getByLabel("First things first, who are you?"),
+  ).toBeVisible();
 });
 
 test("admin can edit the placeholders and full reset uses a simple confirmation button", async ({
@@ -691,4 +693,34 @@ test("Amanda can type all names and participant selectors, wheel labels and save
     headers: { "X-CSRF-Token": session.csrf, Origin: origin },
   });
   await context.close();
+});
+
+test("wrong name can be released before spinning and linked names stay out of the dropdown", async ({ page, browser }) => {
+  const otherContext = await browser.newContext();
+  try {
+    const otherPage = await otherContext.newPage();
+    await claimName(otherPage, "Name 2");
+    await page.goto("/");
+    const selector = page.getByLabel("First things first, who are you?");
+    await expect(selector.getByRole("option", { name: "Name 2", exact: true })).toHaveCount(0);
+    await claimName(page);
+    const wrong: State = await (await page.request.get("/api/state")).json();
+    const adminPage = await page.context().newPage();
+    await adminLogin(page.request);
+    await adminPage.goto("/admin");
+    await adminPage.getByRole("button", { name: "Grant new draw for Amanda", exact: true }).click();
+    await adminPage.getByRole("button", { name: "Yes, give a new draw" }).click();
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(selector).toBeVisible();
+    await expect(selector).toHaveValue("");
+    await expect(selector.getByRole("option", { name: "Amanda", exact: true })).toHaveCount(1);
+    await expect(selector.getByRole("option", { name: "Name 2", exact: true })).toHaveCount(0);
+    await claimName(page, "Name 3");
+    const corrected: State = await (await page.request.get("/api/state")).json();
+    expect(corrected.participant!.id).not.toBe(wrong.participant!.id);
+    await otherPage.reload();
+    await expect(otherPage.getByRole("heading", { name: "Welcome, Name 2" })).toBeVisible();
+  } finally {
+    await otherContext.close();
+  }
 });
