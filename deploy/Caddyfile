@@ -1,0 +1,5 @@
+# Replace this hostname with your real DNS name and match PUBLIC_ORIGIN.
+gifts.your-company.co.za {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8080
+}

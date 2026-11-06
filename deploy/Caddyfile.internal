@@ -1,0 +1,8 @@
+# Configure office DNS so this name resolves to the server's LAN IP.
+# Match PUBLIC_ORIGIN=https://gifts.office.internal.
+# IT must install Caddy's root CA certificate in each phone's trust store.
+gifts.office.internal {
+    tls internal
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8080
+}
