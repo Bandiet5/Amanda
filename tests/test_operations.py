@@ -35,6 +35,9 @@ def test_configuration_generates_private_secret_without_overwriting(tmp_path):
     secret = next(line.split('=',1)[1] for line in original.splitlines() if line.startswith('SECRET_KEY='))
     assert len(secret) >= 48 and secret not in first.stdout
     assert 'ALLOW_INSECURE_HTTP=0' in original
+    settings = dict(line.split('=',1) for line in original.splitlines() if line and not line.startswith('#'))
+    assert settings['DATABASE_URL'] == 'sqlite:///' + (tmp_path/'event.sqlite3').as_posix()
+    assert settings['DATABASE_PATH'] == (tmp_path/'event.sqlite3').as_posix()
     if sys.platform != 'win32': assert output.stat().st_mode & 0o777 == 0o600
     assert subprocess.run(command,capture_output=True).returncode != 0
     assert output.read_text() == original

@@ -7,7 +7,7 @@ Type=simple
 User=amanda
 Group=amanda
 WorkingDirectory=/opt/amanda
-EnvironmentFile=/opt/amanda/.env
+EnvironmentFile=/opt/amanda/.env.local
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/opt/amanda/.venv/bin/waitress-serve --listen=127.0.0.1:8080 --threads=8 --trusted-proxy=127.0.0.1 --trusted-proxy-headers="x-forwarded-for x-forwarded-proto x-forwarded-host" server.wsgi:app
 Restart=on-failure

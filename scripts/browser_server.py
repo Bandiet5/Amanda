@@ -2,6 +2,7 @@
 from pathlib import Path
 import tempfile
 from waitress import serve
+from flask_migrate import upgrade
 from werkzeug.security import generate_password_hash
 from server.app import create_app
 
@@ -14,4 +15,6 @@ if __name__ == '__main__':
             'ADMIN_PASSWORD_HASH': generate_password_hash('browser-tests-only-password', method='scrypt'),
             'TRUSTED_HOSTS': ['127.0.0.1', 'localhost'],
         })
+        with app.app_context():
+            upgrade()
         serve(app, host='127.0.0.1', port=5055, threads=8)

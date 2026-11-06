@@ -1,4 +1,5 @@
 import pytest
+from flask_migrate import upgrade
 from werkzeug.security import generate_password_hash
 from server.app import create_app
 
@@ -12,10 +13,13 @@ def password_hash():
 
 @pytest.fixture
 def app(tmp_path, password_hash):
-    return create_app({'TESTING': True, 'SECRET_KEY': 'test-secret-' * 5,
+    app = create_app({'TESTING': True, 'SECRET_KEY': 'test-secret-' * 5,
                        'DATABASE': str(tmp_path / 'event.sqlite3'), 'PUBLIC_ORIGIN': 'http://localhost',
                        'COOKIE_SECURE': False, 'ADMIN_PASSWORD_HASH': password_hash,
                        'TRUSTED_HOSTS': ['localhost']})
+    with app.app_context():
+        upgrade()
+    return app
 
 
 def bootstrap(client):

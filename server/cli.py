@@ -4,6 +4,7 @@ import getpass
 import os
 from pathlib import Path
 import sqlite3
+from flask_migrate import upgrade
 from werkzeug.security import generate_password_hash
 from .app import create_app, audit
 from .db import get_db, transaction
@@ -14,7 +15,7 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description='Manage Amanda se Kersfees')
     sub = parser.add_subparsers(dest='command', required=True)
-    sub.add_parser('init-db', help='Create tables and the initial eight names; safe to repeat')
+    sub.add_parser('init-db', help='Apply committed Alembic migrations; preserves existing event data')
     sub.add_parser('set-admin-password', help='Securely prompt for Amanda’s admin password')
     backup = sub.add_parser('backup', help='Create a consistent SQLite backup, including WAL data')
     backup.add_argument('destination', type=Path)
@@ -22,6 +23,7 @@ def main():
     app = create_app()
     with app.app_context():
         if args.command == 'init-db':
+            upgrade()
             print('Database ready; existing claims and draws retained.')
         elif args.command == 'set-admin-password':
             if app.config['ADMIN_PASSWORD_HASH']:

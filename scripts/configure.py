@@ -13,7 +13,7 @@ def main():
     mode.add_argument('--production', action='store_true')
     parser.add_argument('--origin', help='Exact origin, e.g. https://gifts.your-company.co.za')
     parser.add_argument('--database', default=str(Path(__file__).resolve().parent.parent / 'instance' / 'amanda.sqlite3'))
-    parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parent.parent / '.env')
+    parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parent.parent / '.env.local')
     args = parser.parse_args()
     origin = (args.origin or ('http://localhost:5173' if args.development else '')).rstrip('/')
     parsed = urlsplit(origin)
@@ -29,15 +29,17 @@ def main():
     text = (f'APP_ENV={"development" if args.development else "production"}\n'
             f'SECRET_KEY={secrets.token_urlsafe(48)}\n'
             f'PUBLIC_ORIGIN={origin}\n'
-            f'DATABASE_PATH="{Path(database).as_posix()}"\n'
+            f'DATABASE_PATH={Path(database).as_posix()}\n'
+            f'DATABASE_URL=sqlite:///{Path(database).as_posix()}\n'
             f'ALLOW_INSECURE_HTTP={"1" if args.development and parsed.scheme == "http" else "0"}\n')
+    args.output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     try:
         fd = os.open(args.output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     except FileExistsError:
         parser.error('The environment file already exists. Edit it deliberately; it will not be overwritten.')
     with os.fdopen(fd, 'w', encoding='utf-8') as file:
         file.write(text)
-    print(f'Created {args.output} with a fresh secret. Next: python -m server.cli set-admin-password')
+    print(f'Created {args.output} with a fresh secret. Next: flask --app server.wsgi:app db upgrade')
 
 
 if __name__ == '__main__':

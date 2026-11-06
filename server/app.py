@@ -11,8 +11,9 @@ from flask import Flask, g, jsonify, request, send_from_directory
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
-from .db import close_db, create_event, get_db, init_db, now, transaction
+from .db import close_db, create_event, get_db, now, transaction
 from .matching import valid_candidates
+from .migration_support import configure_migrations, database_path
 from .security import (ADMIN_COOKIE, BROWSER_COOKIE, APIError, admin_required, admin_session,
                        browser_session, check_csrf, csrf_for, current_event, digest,
                        ensure_browser, new_token, require_browser)
@@ -80,6 +81,7 @@ def person_or_404(db, event_id, person_id):
 
 
 def create_app(test_config=None):
+    load_dotenv(ROOT / '.env.local')
     load_dotenv(ROOT / '.env')
     app = Flask(__name__, static_folder=None)
     environment = os.environ.get('APP_ENV', 'production')
@@ -89,6 +91,7 @@ def create_app(test_config=None):
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY'),
         DATABASE=os.environ.get('DATABASE_PATH', str(ROOT / 'instance' / 'amanda.sqlite3')),
+        DATABASE_URL=os.environ.get('DATABASE_URL'),
         PUBLIC_ORIGIN=os.environ.get('PUBLIC_ORIGIN', 'http://localhost:5173' if not production else ''),
         COOKIE_SECURE=os.environ.get('ALLOW_INSECURE_HTTP') != '1',
         ADMIN_PASSWORD_HASH=os.environ.get('ADMIN_PASSWORD_HASH'),
@@ -107,14 +110,13 @@ def create_app(test_config=None):
     app.config['TRUSTED_HOSTS'] = [origin.hostname] if production else ['localhost', '127.0.0.1', '[::1]']
     if test_config and 'TRUSTED_HOSTS' in test_config:
         app.config['TRUSTED_HOSTS'] = test_config['TRUSTED_HOSTS']
-    db_path = Path(app.config['DATABASE']).expanduser().resolve()
+    db_path = database_path(app.config, test_config)
     if any(db_path.is_relative_to(path) for path in (ROOT / 'dist', ROOT / 'frontend')):
         raise RuntimeError('The database must be outside frontend/publicly served directories.')
     db_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     app.config['DATABASE'] = str(db_path)
     app.teardown_appcontext(close_db)
-    with app.app_context():
-        init_db()
+    configure_migrations(app, db_path)
     try:
         db_path.chmod(0o600)
     except OSError:
@@ -166,7 +168,16 @@ def create_app(test_config=None):
 
     @app.get('/api/health')
     def health():
-        get_db().execute('SELECT 1').fetchone()
+        try:
+            db = get_db()
+            version = db.execute('SELECT version_num FROM alembic_version').fetchone()
+            active = db.execute('SELECT 1 FROM events WHERE active=1').fetchone()
+        except sqlite3.OperationalError as error:
+            if 'no such table' not in str(error).lower():
+                raise
+            version = active = None
+        if version is None or active is None:
+            return jsonify(ok=False, code='migration_required', error='Apply the committed database migrations before starting the event.'), 503
         return jsonify(ok=True)
 
     @app.get('/api/state')

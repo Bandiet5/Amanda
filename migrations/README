@@ -1,0 +1,16 @@
+Flask-Migrate/Alembic owns the event schema.
+
+Apply committed revisions:
+    flask --app server.wsgi:app db upgrade
+
+Inspect the current revision and detect uncommitted model/schema changes:
+    flask --app server.wsgi:app db current
+    flask --app server.wsgi:app db check
+
+Revision 0001_gift_exchange validates and adopts the pre-Alembic SQLite schema
+without rewriting existing event data. It also initializes fresh databases.
+Do not change this revision after publication; add a new revision instead.
+The initial baseline intentionally refuses a destructive downgrade below it.
+
+PaaS runs upgrade under its per-app lock before starting/reloading Gunicorn.
+Never run migrations from application startup or db.create_all().
