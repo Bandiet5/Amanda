@@ -18,7 +18,7 @@ def app(tmp_path, password_hash):
                        'COOKIE_SECURE': False, 'ADMIN_PASSWORD_HASH': password_hash,
                        'TRUSTED_HOSTS': ['localhost']})
     with app.app_context():
-        upgrade()
+        upgrade(revision='0001_gift_exchange')  # Exercise the original eight-person fixture.
     return app
 
 

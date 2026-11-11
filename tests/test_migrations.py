@@ -23,7 +23,7 @@ from conftest import bootstrap, post
 
 ROOT = Path(__file__).resolve().parent.parent
 LEGACY_SCHEMA = Path(__file__).parent / 'fixtures' / 'legacy_schema.sql'
-REVISION = '0001_gift_exchange'
+REVISION = '0002_seven_participants'
 TABLES = ('settings', 'events', 'participants', 'browser_sessions', 'draws',
           'admin_sessions', 'recovery_tokens', 'login_limits', 'audit_log')
 
@@ -88,7 +88,7 @@ def test_fresh_upgrade_is_idempotent_and_matches_metadata(tmp_path):
         assert get_db().execute('PRAGMA journal_mode').fetchone()[0] == 'wal'
         password = get_db().execute("SELECT value FROM settings WHERE key='admin_password_hash'").fetchone()[0]
         assert check_password_hash(password,'amanda123')
-        assert get_db().execute('SELECT count(*) FROM participants').fetchone()[0] == 8
+        assert get_db().execute('SELECT count(*) FROM participants').fetchone()[0] == 15
         assert get_db().execute('PRAGMA foreign_key_check').fetchall() == []
         before = snapshot(path)
         upgrade()
@@ -104,11 +104,10 @@ def test_existing_database_adoption_preserves_every_row_and_saved_session(tmp_pa
     app = application(path)
     assert snapshot(path) == before  # Constructing the WSGI app cannot migrate.
     with app.app_context():
-        upgrade()
+        upgrade(revision='0001_gift_exchange')
         assert snapshot(path) == before
         assert get_db().execute('PRAGMA foreign_key_check').fetchall() == []
-        upgrade()
-        check()
+        upgrade(revision='0001_gift_exchange')
         assert snapshot(path) == before
     client = app.test_client()
     client.set_cookie(BROWSER_COOKIE,'existing-browser-token')
@@ -162,7 +161,7 @@ def test_empty_legacy_schema_gets_only_initial_setup(tmp_path):
     with app.app_context():
         upgrade()
         assert get_db().execute('SELECT count(*) FROM events WHERE active=1').fetchone()[0] == 1
-        assert get_db().execute('SELECT count(*) FROM participants').fetchone()[0] == 8
+        assert get_db().execute('SELECT count(*) FROM participants').fetchone()[0] == 15
         assert get_db().execute('SELECT count(*) FROM draws').fetchone()[0] == 0
 
 
@@ -179,7 +178,7 @@ def test_paas_database_url_selects_same_file_for_migration_and_runtime(tmp_path,
     with app.app_context():
         upgrade()
     assert path.exists() and not ignored.exists()
-    assert bootstrap(app.test_client())['total'] == 8
+    assert bootstrap(app.test_client())['total'] == 7
 
 
 @pytest.mark.parametrize('url',['sqlite:///:memory:','sqlite://','postgresql://example/app'])
@@ -203,7 +202,7 @@ def test_exact_paas_entry_point_upgrades_from_another_working_directory(tmp_path
     assert result.returncode == 0, result.stderr
     with sqlite3.connect(path) as db:
         assert db.execute('SELECT version_num FROM alembic_version').fetchone()[0] == REVISION
-        assert db.execute('SELECT count(*) FROM participants').fetchone()[0] == 8
+        assert db.execute('SELECT count(*) FROM participants').fetchone()[0] == 15
 
 
 def test_compatibility_init_db_command_applies_committed_revision(tmp_path,monkeypatch):
@@ -232,8 +231,8 @@ def test_postgres_initial_revision_with_real_foreign_keys_and_data(tmp_path):
                 config=app.extensions['migrate'].migrate.get_config()
                 config.attributes['connection']=connection
                 command.upgrade(config,'head')
-            assert connection.execute(sa.text('SELECT count(*) FROM participants')).scalar_one() == 8
-            ids=connection.execute(sa.text('SELECT id FROM participants ORDER BY position')).scalars().all()
+            assert connection.execute(sa.text('SELECT count(*) FROM participants')).scalar_one() == 15
+            ids=connection.execute(sa.text('SELECT id FROM participants WHERE event_id=(SELECT id FROM events WHERE active=1) ORDER BY position')).scalars().all()
             event=connection.execute(sa.text('SELECT id FROM events WHERE active=1')).scalar_one()
             connection.execute(sa.text("INSERT INTO browser_sessions(token_hash,event_id,participant_id,created_at) VALUES('test-token',:event,:person,'now')"),{'event':event,'person':ids[0]})
             connection.execute(sa.text("INSERT INTO draws(event_id,giver_id,recipient_id,segments,created_at) VALUES(:event,:giver,:recipient,'[]','now')"),{'event':event,'giver':ids[0],'recipient':ids[1]})

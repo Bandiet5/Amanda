@@ -345,16 +345,18 @@ def create_app(test_config=None):
     def rename():
         body = json_body()
         names = body.get('names')
-        if not isinstance(names, list) or len(names) != 8 or any(not isinstance(n, str) or not 1 <= len(n.strip()) <= 40 or any(ord(c)<32 for c in n) for n in names):
-            raise APIError('Enter exactly eight names, each between 1 and 40 characters.')
+        if not isinstance(names, list) or not 1 <= len(names) <= 8 or any(not isinstance(n, str) or not 1 <= len(n.strip()) <= 40 or any(ord(c)<32 for c in n) for n in names):
+            raise APIError('Enter each participant’s name, between 1 and 40 characters.')
         names = [n.strip() for n in names]
-        if len({n.casefold() for n in names}) != 8:
+        if len({n.casefold() for n in names}) != len(names):
             raise APIError('Each person needs a different name.')
         with transaction() as db:
             event = current_event(db)
             if body.get('event_id') != event['id']:
                 raise APIError('A new round has started. Reload the dashboard before editing names.', 409, 'event_changed')
             rows = participants(db, event['id'])
+            if len(names) != len(rows):
+                raise APIError('Enter one name for each participant.')
             original_names = body.get('original_names')
             if original_names is not None:
                 if original_names != [p['name'] for p in rows]:

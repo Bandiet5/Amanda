@@ -292,7 +292,7 @@ export function Admin() {
       });
       setEditing(false);
       setNotice(
-        "All eight names are saved. The name selector, wheel and presents will update automatically.",
+        "All names are saved. The name selector, wheel and presents will update automatically.",
       );
       await loadDashboard();
     } catch (e) {
@@ -385,7 +385,7 @@ export function Admin() {
                   Hello, <em>Amanda.</em>
                 </h1>
                 <p>
-                  Eight little surprises. A little organisation. A lot of joy.
+                  Christmas surprises. A little organisation. A lot of joy.
                 </p>
               </div>
               <button
@@ -437,7 +437,7 @@ export function Admin() {
                         Names for the Christmas wheel
                       </h2>
                       <p>
-                        Amanda, type the eight names below and press Save names.
+                        Amanda, type the names below and press Save names.
                         Everyone’s screen will update automatically.
                       </p>
                     </div>
@@ -503,7 +503,7 @@ export function Admin() {
                     <span>
                       <strong>
                         {claimed}
-                        <small> / 8</small>
+                        <small> / {dashboard.participants.length}</small>
                       </strong>
                       <span>Names safely linked</span>
                     </span>
@@ -513,7 +513,7 @@ export function Admin() {
                     <span>
                       <strong>
                         {completed}
-                        <small> / 8</small>
+                        <small> / {dashboard.participants.length}</small>
                       </strong>
                       <span>Surprises revealed</span>
                     </span>
@@ -523,7 +523,7 @@ export function Admin() {
                     <span>
                       <strong className="status-stat">
                         {dashboard.started
-                          ? completed === 8
+                          ? completed === dashboard.participants.length
                             ? "All wrapped up"
                             : "Magic in progress"
                           : "Ready for the magic"}
@@ -531,7 +531,7 @@ export function Admin() {
                       <span>
                         {dashboard.started
                           ? "Amanda can still update the names"
-                          : "Fill in the eight names above"}
+                          : "Fill in the names above"}
                       </span>
                     </span>
                   </div>
@@ -812,7 +812,7 @@ export function Admin() {
               <form onSubmit={(e) => void executeAction(e)}>
                 <p>
                   {action.kind === "reset"
-                    ? "Everyone will choose their name and spin again. All current draws will be cleared. The eight names will stay the same."
+                    ? "Everyone will choose their name and spin again. All current draws will be cleared. The names will stay the same."
                     : action.kind === "reveal"
                       ? "This will show each giver’s saved recipient on your dashboard. Keep your screen private. This deliberate reveal will be recorded in the audit log."
                       : action.kind === "new-draw"

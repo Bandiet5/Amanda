@@ -1,6 +1,6 @@
 # Amanda se Kersfees
 
-A complete, self-hosted, eight-person Christmas gift exchange. The participant journey starts with choosing a name, zooms into a wheel with 3D depth, and reveals 3D presents falling one after another, followed by the saved recipient’s name dropping last in gold 3D lettering onto the boxes. On desktop, the wheel and presents appear side by side with a short sparkle burst behind the wheel; on phones the recipient and gifts come first, with the wheel below. React + TypeScript + Vite, an SVG wheel, Flask, SQLite and Waitress. `/` is the participant experience; `/admin` is Amanda’s separate password-protected dashboard. The production frontend and API share one origin. No paid service, third-party login or cloud database is needed.
+A complete, self-hosted, seven-person Christmas gift exchange. The participant journey starts with choosing a name, zooms into a wheel with 3D depth, and reveals 3D presents falling one after another, followed by the saved recipient’s name dropping last in gold 3D lettering onto the boxes. On desktop, the wheel and presents appear side by side with a short sparkle burst behind the wheel; on phones the recipient and gifts come first, with the wheel below. React + TypeScript + Vite, an SVG wheel, Flask, SQLite and Waitress. `/` is the participant experience; `/admin` is Amanda’s separate password-protected dashboard. The production frontend and API share one origin. No paid service, third-party login or cloud database is needed.
 
 ## Run locally
 
@@ -32,7 +32,7 @@ Open **http://localhost:5173**. Vite proxies `/api` to Flask. Use that exact ori
 ## Configure the event
 
 1. Open `/admin` and sign in with `amanda123` (or your replacement password). Choosing the participant named Amanda does **not** authenticate an administrator.
-2. In **Names for the Christmas wheel**, type all eight names and click **Save names**. Amanda can edit these names in the admin area at any time. The selector, wheel and presents update automatically within a few seconds. Exactly eight distinct names are required; renaming preserves browser links, recipient IDs and completed draws.
+2. In **Names for the Christmas wheel**, type all seven names and click **Save names**. Amanda can edit these names in the admin area at any time. The selector, wheel and presents update automatically within a few seconds. Exactly seven distinct names are required; renaming preserves browser links, recipient IDs and completed draws.
 3. Share the participant URL. Each person chooses their own name, explicitly confirms “I am [name]”, then spins once. Claimed names remain visible and disabled.
 4. Returning in the same browser restores the name and saved result, including after an interrupted animation. Result data is never stored in localStorage or sessionStorage.
 
@@ -44,7 +44,7 @@ Admin recovery controls:
 - **Recover** explicitly resets the old browser binding and returns a one-use link, valid for 24 hours. The name remains reserved and its saved result is retained. Open the link on the intended participant’s phone. Issuing another link replaces the previous one. Amanda can also create a recovery link for an unclaimed name; this reserves it and lets her correct a wrong-name selection on a revoked browser. The token travels in the URL fragment, is immediately removed from the address bar, and is stored only as a hash on the server.
 - **New draw** uses a simple **Yes, give a new draw** confirmation button. It unlinks that participant’s browser, releases their name and allocation, clears pending recovery links, and increments their draw version. They must choose a name again; the dropdown only shows unlinked names. This also works before their first spin. Everyone else’s completed assignment is preserved. The same recipient can be selected again; with seven other completed draws it is necessarily the only valid option. Open pages reconcile every five seconds and when refocused. Before the final reveal, the client checks the saved state again.
 - **Reveal recipients** requires a deliberate confirmation and records that access in the audit log. The normal dashboard response never contains assignments. Revealed assignments disappear when the event revision changes.
-- **Reset entire event** uses a simple **Yes, reset everyone** confirmation button. It deletes current draws, clears claims, invalidates old participant sessions and recovery links, retains the eight names and administrative audit history, and creates a fresh round. Admin authentication remains separate.
+- **Reset entire event** uses a simple **Yes, reset everyone** confirmation button. It deletes current draws, clears claims, invalidates old participant sessions and recovery links, retains the seven names and administrative audit history, and creates a fresh round. Admin authentication remains separate.
 
 The dashboard shows claim/draw timestamps, completion state and the latest 60 administrative audit entries. The database retains the full administrative log. All administrator actions use the one Amanda administrator account.
 
@@ -67,7 +67,7 @@ This creates literal `NAME=value` entries compatible with PaaS, including `APP_E
 
 Bind that file to the stopped app using the PaaS operator workflow, with required names `DATABASE_URL`, `SECRET_KEY`, `PUBLIC_ORIGIN`, `APP_ENV` and `ALLOW_INSECURE_HTTP`. Linux requirements include Gunicorn for the PaaS-managed process; Windows keeps Waitress. Build the frontend with `npm ci` and `npm run build` in the release checkout. Then let PaaS Start apply migrations and activate its existing Gunicorn process. `GET /api/health` returns 503 until the database is initialized, and 200 after the upgrade.
 
-A first upgrade creates the schema and eight initial names. An existing database from release `25db2d3` is validated and adopted: its names, IDs, claims, assignments, timestamps, browser/recovery tokens, admin password and audit rows are retained. The same upgrade can be repeated safely. Partial or incompatible legacy schemas fail without changing event data; fix the migration in Git and retry through PaaS. The initial baseline deliberately rejects downgrading below it because that would remove event data. Future revisions can still downgrade back to the baseline.
+A first upgrade creates the schema and activates the seven default names listed below. An existing database from release `25db2d3` is validated and adopted: its names, IDs, claims, assignments, timestamps, browser/recovery tokens, admin password and audit rows are retained. The subsequent seven-person migration archives the old round and starts a new round; existing browser links return to name selection. The same upgrade can be repeated safely. Partial or incompatible legacy schemas fail without changing event data; fix the migration in Git and retry through PaaS. The initial baseline deliberately rejects downgrading below it because that would remove event data. Future revisions can still downgrade back to the baseline.
 
 `DATABASE_URL` controls both the migration engine and runtime SQLite connection. `DATABASE_PATH` is retained for older installations when no URL is set. SQLite stays the runtime database; PostgreSQL is used only by a separate migration portability test. No Postgres service is needed to host this application.
 
@@ -225,3 +225,7 @@ pg_virtualenv -t -v 16 .venv/bin/python tests/run_postgres_migrations.py
 ```
 
 It creates a throw-away cluster and tests real foreign keys, uniqueness, self-draw rejection, seeds and repeated upgrades. Without that test environment, the PostgreSQL test is reported as skipped by the normal pytest run. The normal suite requires no PostgreSQL server.
+
+### Seven-person Christmas round
+
+Migration `0002_seven_participants` installs Amanda’s default roster: Amanda, Elsa, Linda, Karin, Christine, Chanson, Marlene. On upgrade it archives the previous active round and starts a fresh round with these seven names. Previous draws remain stored under the old event. Everyone chooses their name again. Subsequent resets retain the current seven names, including admin edits.

@@ -16,5 +16,5 @@ if __name__ == '__main__':
             'TRUSTED_HOSTS': ['127.0.0.1', 'localhost'],
         })
         with app.app_context():
-            upgrade()
+            upgrade(revision='0001_gift_exchange')  # Exercise the original eight-person fixture.
         serve(app, host='127.0.0.1', port=5055, threads=8)
